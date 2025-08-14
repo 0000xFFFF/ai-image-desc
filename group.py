@@ -13,13 +13,13 @@ import argparse
 # Argument parsing
 parser = argparse.ArgumentParser(description='group images by eng names')
 parser.add_argument('directory', type=str, help="dir with images")
-parser.add_argument('-d', '--display', action='store_true', help="show image with label in title")
+parser.add_argument('-s', '--show', action='store_true', help="show image with label in title")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 args = parser.parse_args()
 
 print(f"searching in dir: {args.directory}")
 
-if args.display:
+if args.show:
     import matplotlib.pyplot as plt
     from skimage import io
 
@@ -77,7 +77,7 @@ for fname, cluster_id in zip(image_files, labels):
     label_name = candidate_labels[np.argmax(cosine_similarity([cluster_embs[cluster_id]], text_embs)[0])]
     print(f"{fname} → {label_name}")
 
-    if args.display:
+    if args.show:
         plt.figure()
         plt.title(label_name)
         plt.imshow(io.imread(fname))

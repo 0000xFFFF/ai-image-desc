@@ -9,13 +9,13 @@ import argparse
 # Argument parsing
 parser = argparse.ArgumentParser(description='Describe images in English using BLIP')
 parser.add_argument('directory', type=str, help="dir with images")
-parser.add_argument('-d', '--display', action='store_true', help="show image with label in title")
+parser.add_argument('-s', '--show', action='store_true', help="show image with label in title")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 args = parser.parse_args()
 
 print(f"Searching in dir: {args.directory}")
 
-if args.display:
+if args.show:
     import matplotlib.pyplot as plt
     from skimage import io
 
@@ -50,7 +50,7 @@ for filepath in image_files:
 
         print(f"{filepath} → {caption}")
 
-        if args.display:
+        if args.show:
             plt.figure()
             plt.title(caption)
             plt.imshow(io.imread(filepath))
