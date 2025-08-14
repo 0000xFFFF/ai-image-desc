@@ -1,6 +1,12 @@
 # ai-image-desc
 trying to describe images using ai
 
+## Setup
+```sh
+./setup-env.sh        # nvidia gpu
+./setup-env-rocm.sh   # amd gpu
+```
+
 ## describe.py
 ```
 usage: describe.py [-h] [-s] [-g] [-b BATCH] [-lb LOAD_BATCH] [-o OUTPUT] directory
