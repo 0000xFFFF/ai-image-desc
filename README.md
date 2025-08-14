@@ -20,7 +20,7 @@ images/test3.jpeg
 
 ### Running
 ```sh
-python describe.py -g images
+./describe.py -g images
 ```
 
 ### Gives
@@ -38,7 +38,7 @@ images/test3.jpeg → a boat is in the water near a city
 ```
 
 ## describe.py
-```
+```console
 usage: describe.py [-h] [-s] [-g] [-b BATCH] [-lb LOAD_BATCH] [-o OUTPUT] directory
 
 Describe images in English using BLIP
@@ -58,7 +58,7 @@ options:
 
 ## nsfw-detector.py
 (modded describe.py to detect nsfw words auto moderation for a web platform)
-```
+```console
 usage: nsfw-detector.py [-h] [-s] [-sc] [-sn] [-g] [-b BATCH] [-lb LOAD_BATCH] directory
 
 Detect NSFW images using BLIP (auto moderation)
@@ -79,7 +79,7 @@ options:
 
 ## group.py
 (needs manual tweaking to actually work)
-```
+```console
 usage: group.py [-h] [-s] [-g] directory
 
 group images by eng names
