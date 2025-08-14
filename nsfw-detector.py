@@ -5,6 +5,7 @@ from PIL import Image
 import os
 import glob
 import argparse
+from tqdm import tqdm
 
 # Argument parsing
 parser = argparse.ArgumentParser(description='Detect NSFW images using BLIP (auto modding)')
@@ -16,11 +17,11 @@ parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-c', '--clean', action='store_true', help="print clean files (shows you the progress)")
 args = parser.parse_args()
 
-if args.show:
+if args.show or args.show_clean or args.show_nsfw:
     import matplotlib.pyplot as plt
     from skimage import io
 
-def show(image_path):
+def show(image_path, caption):
     plt.figure()
     plt.title(caption)
     plt.imshow(io.imread(image_path))
@@ -59,8 +60,8 @@ nsfw_keywords = [
 nsfw_results = []
 clean_results = []
 
-# Process images
-for filepath in image_files:
+# Process images with progress bar
+for filepath in tqdm(image_files, desc="Processing images", unit="img"):
     try:
         image = Image.open(filepath).convert("RGB")
         inputs = processor(images=image, return_tensors="pt").to(device)
@@ -90,12 +91,12 @@ if nsfw_results:
     for path, caption in nsfw_results:
         print(f"{path} → {caption}")
         if args.show or args.show_nsfw:
-            show(path)
+            show(path, caption)
 
 if clean_results:
     print("\nClean Images:")
     for path, caption in clean_results:
         print(f"{path} → {caption}")
         if args.show or args.show_clean:
-            show(path)
+            show(path, caption)
 
