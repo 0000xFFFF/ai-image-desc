@@ -9,11 +9,13 @@ images/test1.jpg
 images/test2.jpg
 images/test3.jpeg
 ```
-
-<img src="images/test1.jpg" width="150" height="225">
-<img src="images/test2.jpg" width="200" height="225">
-<img src="images/test3.jpeg" width="200" height="225">
-
+<table>
+  <tr>
+    <td><img src="images/test1.jpg" width="150" height="225"/></td>
+    <td><img src="images/test2.jpg" width="200" height="225"/></td>
+    <td><img src="images/test3.jpeg" width="200" height="225"/></td>
+  </tr>
+</table>
 ### Running
 ```sh
 python describe.py -g images
