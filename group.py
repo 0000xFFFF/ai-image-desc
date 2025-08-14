@@ -23,11 +23,10 @@ if args.display:
     import matplotlib.pyplot as plt
     from skimage import io
 
-# Load CLIP
-device = "cpu"
-if args.gpu:
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda" if args.gpu and torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
 
+# Load CLIP
 model, preprocess = clip.load("ViT-B/32", device=device)
 
 # Find images recursively
@@ -82,4 +81,5 @@ for fname, cluster_id in zip(image_files, labels):
         plt.figure()
         plt.title(label_name)
         plt.imshow(io.imread(fname))
+        plt.axis("off")
         plt.show()

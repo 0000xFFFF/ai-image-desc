@@ -35,8 +35,9 @@ pip install --upgrade pip
 
 # Install the requirements
 if [ -f requirements.txt ]; then
-    pip install torch
-    pip install -r requirements.txt
+    pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.4
+    pip3 install -r requirements.txt
+
 else
     echo "requirements.txt not found"
     exit 1

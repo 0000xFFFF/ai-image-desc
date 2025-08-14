@@ -1,5 +1,4 @@
 ipython
-torch
 matplotlib
 scikit-image
 transformers
