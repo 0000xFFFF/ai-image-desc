@@ -5,16 +5,18 @@ from PIL import Image
 import os
 import glob
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
 # Argument parsing
-parser = argparse.ArgumentParser(description='Detect NSFW images using BLIP (auto modding)')
+parser = argparse.ArgumentParser(description='Detect NSFW images using BLIP (auto moderation)')
 parser.add_argument('directory', type=str, help="dir with images")
 parser.add_argument('-s', '--show', action='store_true', help="show images (clean+nsfw) with label in title")
 parser.add_argument('-sc', '--show_clean', action='store_true', help="show clean images with label in title")
 parser.add_argument('-sn', '--show_nsfw', action='store_true', help="show nsfw images with label in title")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
-parser.add_argument('-c', '--clean', action='store_true', help="print clean files (shows you the progress)")
+parser.add_argument('-c', '--clean', action='store_true', help="print clean files (shows progress)")
+parser.add_argument('-b', '--batch', type=int, default=8, help="batch size for GPU processing")
 args = parser.parse_args()
 
 if args.show or args.show_clean or args.show_nsfw:
@@ -40,6 +42,7 @@ from transformers import BlipProcessor, BlipForConditionalGeneration
 processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 model.to(device)
+model.eval()
 
 # Recursive image search
 image_files = []
@@ -56,33 +59,50 @@ nsfw_keywords = [
     "buttocks", "sex", "erotic", "explicit", "intimate"
 ]
 
+# Threaded image loading
+def load_image(path):
+    try:
+        img = Image.open(path).convert("RGB")
+        return path, img
+    except Exception as e:
+        return path, None
+
+with ThreadPoolExecutor(max_workers=8) as executor:
+    loaded_images = list(tqdm(executor.map(load_image, image_files), total=len(image_files), desc="Loading images"))
+
+# Filter out failed loads
+loaded_images = [(p, img) for p, img in loaded_images if img is not None]
+
 # Results storage
 nsfw_results = []
 clean_results = []
 
-# Process images with progress bar
-for filepath in tqdm(image_files, desc="Processing images", unit="img"):
-    try:
-        image = Image.open(filepath).convert("RGB")
-        inputs = processor(images=image, return_tensors="pt").to(device)
+# Batch processing with mixed precision
+batch_size = args.batch
+print(f"Batch size: {batch_size}")
+for i in tqdm(range(0, len(loaded_images), batch_size), desc="Processing images"):
+    batch = loaded_images[i:i+batch_size]
+    paths, images = zip(*batch)
 
-        out = model.generate(**inputs)
-        caption = processor.decode(out[0], skip_special_tokens=True)
+    inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
 
-        # Check if caption contains NSFW words
+    with torch.no_grad():
+        with torch.cuda.amp.autocast(enabled=(device=="cuda")):
+            outputs = model.generate(**inputs)
+
+    captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
+
+    for path, caption in zip(paths, captions):
         if any(word in caption.lower() for word in nsfw_keywords):
-            nsfw_results.append((filepath, caption))
+            nsfw_results.append((path, caption))
         else:
-            clean_results.append((filepath, caption))
+            clean_results.append((path, caption))
             if args.clean:
-                print(f"clean: {filepath}")
-
-    except Exception as e:
-        print(f"Skipping {filepath}: {e}")
+                print(f"clean: {path}")
 
 # Summary output
 print("\n===== SUMMARY =====")
-print(f"Total images processed: {len(image_files)}")
+print(f"Total images processed: {len(loaded_images)}")
 print(f"NSFW detected: {len(nsfw_results)}")
 print(f"Clean: {len(clean_results)}")
 
