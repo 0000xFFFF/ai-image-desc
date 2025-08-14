@@ -34,8 +34,14 @@ images/test3.jpeg → a boat is in the water near a city
 ## Setup
 ```sh
 ./setup-env.sh        # nvidia gpu
+# or
 ./setup-env-rocm.sh   # amd gpu
 ```
+### Use the virtual environment:
+```
+source p3env/bin/activate
+```
+
 
 ## describe.py
 ```console
