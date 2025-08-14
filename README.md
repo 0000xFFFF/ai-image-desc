@@ -1,6 +1,32 @@
 # ai-image-desc
 trying to describe images using ai
 
+## Preview
+
+### Images:
+```
+images/test1.jpg
+images/test2.jpg
+images/test3.jpeg
+```
+
+<img src="images/test1.jpg" width="150" height="225">
+<img src="images/test2.jpg" width="200" height="225">
+<img src="images/test3.jpeg" width="200" height="225">
+
+### Running
+```sh
+python describe.py -g images
+```
+
+### Gives
+```
+images/test1.jpg → a car driving down a dirt road in the fall
+images/test2.jpg → a person standing on top of a sand dune
+images/test3.jpeg → a boat is in the water near a city
+```
+
+
 ## Setup
 ```sh
 ./setup-env.sh        # nvidia gpu
@@ -48,6 +74,7 @@ options:
 ```
 
 ## group.py
+(needs manual tweaking to actually work)
 ```
 usage: group.py [-h] [-s] [-g] directory
 
