@@ -68,7 +68,6 @@ def load_image(path):
         img = Image.open(path).convert("RGB")
         return path, img
     except Exception as e:
-        print(f"Failed to load {path}: {e}")
         return path, None
 
 # Results storage
@@ -81,75 +80,80 @@ failed_loads = 0
 load_batch_size = args.load_batch
 processing_batch_size = args.batch
 
-# Create progress bar for overall progress
-overall_progress = tqdm(total=len(image_files), desc="Overall progress")
+# Process images in loading batches to manage memory
+load_batch_size = args.load_batch
+processing_batch_size = args.batch
 
-for load_start in range(0, len(image_files), load_batch_size):
-    # Get current batch of file paths
-    load_end = min(load_start + load_batch_size, len(image_files))
-    current_batch_paths = image_files[load_start:load_end]
-    
-    print(f"\nLoading batch {load_start//load_batch_size + 1}/{(len(image_files)-1)//load_batch_size + 1}")
-    print(f"Loading images {load_start+1} to {load_end}")
-    
-    # Load current batch of images using thread pool
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        loaded_images = list(tqdm(
-            executor.map(load_image, current_batch_paths), 
-            total=len(current_batch_paths), 
-            desc="Loading images",
-            leave=False
-        ))
-    
-    # Filter out failed loads
-    valid_images = [(p, img) for p, img in loaded_images if img is not None]
-    failed_loads += len(loaded_images) - len(valid_images)
-    
-    if not valid_images:
-        overall_progress.update(len(current_batch_paths))
-        continue
-    
-    print(f"\nSuccessfully loaded {len(valid_images)} images from this batch\n")
-    
-    # Process the loaded images in smaller processing batches
-    for proc_start in range(0, len(valid_images), processing_batch_size):
-        proc_end = min(proc_start + processing_batch_size, len(valid_images))
-        batch = valid_images[proc_start:proc_end]
-        paths, images = zip(*batch)
+# Create nested progress bars
+with tqdm(total=len(image_files), desc="Overall progress", position=0) as overall_pbar:
+    with tqdm(total=0, desc="Current batch", position=1, leave=False) as batch_pbar:
         
-        # Process batch with BLIP
-        inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
-        
-        with torch.no_grad():
-            with torch.cuda.amp.autocast(enabled=(device=="cuda")):
-                outputs = model.generate(**inputs)
-        
-        captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
-        
-        # Analyze results
-        for path, caption in zip(paths, captions):
-            if any(word in caption.lower() for word in nsfw_keywords):
-                nsfw_results.append((path, caption))
-            else:
-                clean_results.append((path, caption))
-        
-        total_processed += len(batch)
-        overall_progress.update(len(batch))
-        
-        # Clear GPU cache if using CUDA
-        if device == "cuda":
-            torch.cuda.empty_cache()
-    
-    # Clear the loaded images from memory
-    del valid_images
-    del loaded_images
-    gc.collect()  # Force garbage collection
-    
-    # Clear GPU cache again
-    if device == "cuda":
-        torch.cuda.empty_cache()
-
-overall_progress.close()
+        for load_start in range(0, len(image_files), load_batch_size):
+            # Get current batch of file paths
+            load_end = min(load_start + load_batch_size, len(image_files))
+            current_batch_paths = image_files[load_start:load_end]
+            
+            # Reset and configure batch progress bar
+            batch_pbar.reset(total=len(current_batch_paths))
+            batch_pbar.set_description(f"Loading batch {load_start//load_batch_size + 1}/{(len(image_files)-1)//load_batch_size + 1}")
+            
+            # Load current batch of images using thread pool
+            loaded_images = []
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                for result in executor.map(load_image, current_batch_paths):
+                    loaded_images.append(result)
+                    batch_pbar.update(1)
+            
+            # Filter out failed loads
+            valid_images = [(p, img) for p, img in loaded_images if img is not None]
+            failed_loads += len(loaded_images) - len(valid_images)
+            
+            if not valid_images:
+                overall_pbar.update(len(current_batch_paths))
+                continue
+            
+            # Reset batch progress bar for processing
+            batch_pbar.reset(total=len(valid_images))
+            batch_pbar.set_description(f"Processing batch {load_start//load_batch_size + 1}")
+            
+            # Process the loaded images in smaller processing batches
+            for proc_start in range(0, len(valid_images), processing_batch_size):
+                proc_end = min(proc_start + processing_batch_size, len(valid_images))
+                batch = valid_images[proc_start:proc_end]
+                paths, images = zip(*batch)
+                
+                # Process batch with BLIP
+                inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
+                
+                with torch.no_grad():
+                    with torch.cuda.amp.autocast(enabled=(device=="cuda")):
+                        outputs = model.generate(**inputs)
+                
+                captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
+                
+                # Analyze results
+                for path, caption in zip(paths, captions):
+                    if any(word in caption.lower() for word in nsfw_keywords):
+                        nsfw_results.append((path, caption))
+                    else:
+                        clean_results.append((path, caption))
+                
+                total_processed += len(batch)
+                batch_pbar.update(len(batch))
+                overall_pbar.update(len(batch))
+                
+                # Clear GPU cache if using CUDA
+                if device == "cuda":
+                    torch.cuda.empty_cache()
+            
+            # Clear the loaded images from memory
+            del valid_images
+            del loaded_images
+            gc.collect()  # Force garbage collection
+            
+            # Clear GPU cache again
+            if device == "cuda":
+                torch.cuda.empty_cache()
 
 # Summary output
 print("\n===== SUMMARY =====")
