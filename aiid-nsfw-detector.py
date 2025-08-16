@@ -7,6 +7,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 import gc
+import re
 
 # Argument parsing
 parser = argparse.ArgumentParser(description='Detect NSFW images using BLIP (auto moderation)')
