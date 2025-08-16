@@ -155,10 +155,12 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
                 
                 # Analyze results (regex match whole words)
-                if re.search(r"\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\b", text):
-                    nsfw_results.append((path, caption))
-                else:
-                    clean_results.append((path, caption))
+                for path, caption in zip(paths, captions):
+                    text = caption.lower()
+                    if re.search(r"\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\b", text):
+                        nsfw_results.append((path, caption))
+                    else:
+                        clean_results.append((path, caption))
                 
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
@@ -185,7 +187,21 @@ print(f"Failed to load: {failed_loads}")
 print(f"NSFW detected: {len(nsfw_results)}")
 print(f"Clean: {len(clean_results)}")
 
+
+def save_csv(file, results):
+    try:
+        with open(file, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Path', 'Caption'])  # Header
+            writer.writerows(results)
+        print(f"Results saved to: {file}")
+    except Exception as e:
+        print(f"Failed to save CSV: {e}")
+
 if nsfw_results:
+    if args.output_nsfw:
+        save_csv(args.output_nsfw, nsfw_results)
+
     print("\nNSFW Images:")
     for path, caption in nsfw_results:
         print(f"{path} → {caption}")
@@ -193,8 +209,14 @@ if nsfw_results:
             show(path, caption)
 
 if clean_results:
+
+    if args.output_clean:
+        save_csv(args.output_clean, clean_results)
+
     print("\nClean Images:")
     for path, caption in clean_results:
         print(f"{path} → {caption}")
         if args.show or args.show_clean:
             show(path, caption)
+
+
