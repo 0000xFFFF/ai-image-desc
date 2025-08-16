@@ -142,7 +142,7 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
                 
                 with torch.no_grad():
-                    with torch.amp.autocast(enabled=(device=="cuda")):
+                    with torch.amp.autocast("cuda", enabled=(device=="cuda")):
                         outputs = model.generate(**inputs)
                 
                 captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
