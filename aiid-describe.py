@@ -30,17 +30,17 @@ def show(image_path, caption):
     plt.axis("off")
     plt.show()
 
-print(f"Searching in: {args.input}")
-
 # Collect image files
 image_files = []
 if os.path.isfile(args.input):
     # Single file
     image_files = [args.input]
 elif os.path.isdir(args.input):
+    print(f"Searching in dir: {args.input}")
     # Directory (recursive search)
     for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
         image_files.extend(glob.glob(os.path.join(args.input, "**", ext), recursive=True))
+    print(f"Found {len(image_files)} images")
 else:
     print("Error: Input path is neither a file nor a directory")
     exit()
@@ -49,11 +49,12 @@ if not image_files:
     print("No images found!")
     exit()
 
-print(f"Found {len(image_files)} images")
 
 # Device
 device = "cuda" if args.gpu and torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
+print(f"Processing batch size: {args.batch}")
+print(f"Loading batch size: {args.load_batch}")
 
 # Load BLIP
 from transformers import BlipProcessor, BlipForConditionalGeneration
@@ -65,13 +66,6 @@ model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-capt
 model.to(device)
 model.eval()
 
-if not image_files:
-    print("No images found!")
-    exit()
-
-print(f"Found {len(image_files)} images")
-print(f"Processing batch size: {args.batch}")
-print(f"Loading batch size: {args.load_batch}")
 
 # Threaded image loading function
 def load_image(path):

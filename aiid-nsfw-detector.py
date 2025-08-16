@@ -6,6 +6,7 @@ import glob
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
+import csv
 import gc
 import re
 
@@ -33,7 +34,17 @@ def show(image_path, caption):
     plt.axis("off")
     plt.show()
 
-print(f"Searching in dir: {args.input}")
+
+# NSFW keywords
+nsfw_keywords = set()
+nsfw_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "nsfw.lst")
+with open(nsfw_file, "r") as f:
+    for line in f:
+        x = line.strip()
+        if x not in nsfw_keywords:
+            nsfw_keywords.add(x)
+
+print(f"Loaded {len(nsfw_keywords)} nsfw keywords")
 
 # Collect image files
 image_files = []
@@ -41,9 +52,11 @@ if os.path.isfile(args.input):
     # Single file
     image_files = [args.input]
 elif os.path.isdir(args.input):
+    print(f"Searching in dir: {args.input}")
     # Directory (recursive search)
     for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
         image_files.extend(glob.glob(os.path.join(args.input, "**", ext), recursive=True))
+    print(f"Found {len(image_files)} images")
 else:
     print("Error: Input path is neither a file nor a directory")
     exit()
@@ -53,11 +66,12 @@ if not image_files:
     exit()
 
 
-print(f"Found {len(image_files)} images")
 
 # Device
 device = "cuda" if args.gpu and torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
+print(f"Processing batch size: {args.batch}")
+print(f"Loading batch size: {args.load_batch}")
 
 # Load BLIP
 from transformers import BlipProcessor, BlipForConditionalGeneration
@@ -68,22 +82,6 @@ processor = BlipProcessor.from_pretrained(
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 model.to(device)
 model.eval()
-
-
-
-print(f"Found {len(image_files)} images")
-print(f"Processing batch size: {args.batch}")
-print(f"Loading batch size: {args.load_batch}")
-
-# NSFW keywords
-nsfw_keywords = set()
-nsfw_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "nsfw.lst")
-with open(nsfw_file, "r") as f:
-    for line in f:
-        for i in line.split():
-            x = i.strip()
-            if x not in nsfw_keywords:
-                nsfw_keywords.add(x)
 
 # Threaded image loading function
 def load_image(path):
@@ -155,13 +153,17 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
                 
                 # Analyze results (regex match whole words)
+                pattern = re.compile(r"\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\b", re.IGNORECASE)
                 for path, caption in zip(paths, captions):
                     text = caption.lower()
-                    if re.search(r"\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\b", text):
-                        nsfw_results.append((path, caption))
+                    match = pattern.search(text)
+
+                    if match:
+                        # Add (path, caption, matched_word)
+                        nsfw_results.append((path, caption, match.group(1)))
                     else:
                         clean_results.append((path, caption))
-                
+                            
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
                 overall_pbar.update(len(batch))
@@ -203,8 +205,8 @@ if nsfw_results:
         save_csv(args.output_nsfw, nsfw_results)
 
     print("\nNSFW Images:")
-    for path, caption in nsfw_results:
-        print(f"{path} → {caption}")
+    for path, caption, match in nsfw_results:
+        print(f"{path} → {caption} → {match}")
         if args.show or args.show_nsfw:
             show(path, caption)
 
