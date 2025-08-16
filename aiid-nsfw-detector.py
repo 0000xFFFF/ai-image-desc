@@ -11,12 +11,14 @@ import gc
 # Argument parsing
 parser = argparse.ArgumentParser(description='Detect NSFW images using BLIP (auto moderation)')
 parser.add_argument('input', type=str, help="image file or directory with images")
-parser.add_argument('-s', '--show', action='store_true', help="show images (clean+nsfw) with label in title after processing all")
-parser.add_argument('-sc', '--show_clean', action='store_true', help="show clean images with label in title after processing all")
-parser.add_argument('-sn', '--show_nsfw', action='store_true', help="show nsfw images with label in title after processing all")
+parser.add_argument('-s', '--show', action='store_true', help="show images (clean+nsfw) with caption in title after processing all")
+parser.add_argument('-sc', '--show_clean', action='store_true', help="show clean images with caption in title after processing all")
+parser.add_argument('-sn', '--show_nsfw', action='store_true', help="show nsfw images with caption in title after processing all")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
-parser.add_argument('-b', '--batch', type=int, default=8, help="batch size for GPU processing")
-parser.add_argument('-lb', '--load_batch', type=int, default=256, help="batch size for loading images into memory")
+parser.add_argument('-b', '--batch', metavar="number", type=int, default=8, help="batch size for GPU processing")
+parser.add_argument('-lb', '--load_batch', metavar="number", type=int, default=256, help="batch size for loading images into memory")
+parser.add_argument('-oc', '--output_clean', metavar="clean.csv", type=str, help="output clean image(s) with caption to CSV file")
+parser.add_argument('-on', '--output_nsfw', metavar="nsfw.csv", type=str, help="output nsfw image(s) with caption CSV file")
 args = parser.parse_args()
 
 if args.show or args.show_clean or args.show_nsfw:
@@ -73,10 +75,14 @@ print(f"Processing batch size: {args.batch}")
 print(f"Loading batch size: {args.load_batch}")
 
 # NSFW keywords
-nsfw_keywords = [
-    "nude", "naked", "sexual", "porn", "breast", "penis", "vagina",
-    "buttocks", "sex", "erotic", "explicit", "intimate"
-]
+nsfw_keywords = set()
+nsfw_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "nsfw.lst")
+with open(nsfw_file, "r") as f:
+    for line in f:
+        for i in line.split():
+            x = i.strip()
+            if x not in nsfw_keywords:
+                nsfw_keywords.add(x)
 
 # Threaded image loading function
 def load_image(path):
@@ -147,12 +153,11 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 
                 captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
                 
-                # Analyze results
-                for path, caption in zip(paths, captions):
-                    if any(word in caption.lower() for word in nsfw_keywords):
-                        nsfw_results.append((path, caption))
-                    else:
-                        clean_results.append((path, caption))
+                # Analyze results (regex match whole words)
+                if re.search(r"\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\b", text):
+                    nsfw_results.append((path, caption))
+                else:
+                    clean_results.append((path, caption))
                 
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
