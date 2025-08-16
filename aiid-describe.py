@@ -12,11 +12,11 @@ import csv
 # Argument parsing
 parser = argparse.ArgumentParser(description='Describe images in English using BLIP')
 parser.add_argument('input', type=str, help="image file or directory with images")
-parser.add_argument('-s', '--show', action='store_true', help="show image(s) with label in title after processing all")
+parser.add_argument('-s', '--show', action='store_true', help="show image(s) with caption in title after processing all")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
-parser.add_argument('-b', '--batch', type=int, default=8, help="batch size for GPU processing")
-parser.add_argument('-lb', '--load_batch', type=int, default=256, help="batch size for loading images into memory")
-parser.add_argument('-o', '--output', type=str, help="output CSV file to save results")
+parser.add_argument('-b', '--batch', metavar="number", type=int, default=8, help="batch size for GPU processing")
+parser.add_argument('-lb', '--load_batch', metavar="number", type=int, default=256, help="batch size for loading images into memory")
+parser.add_argument('-o', '--output', metavar="file.csv", type=str, help="output results to CSV file")
 args = parser.parse_args()
 
 if args.show:
