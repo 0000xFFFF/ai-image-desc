@@ -20,7 +20,7 @@ images/test3.jpeg
 
 ### Running
 ```sh
-./describe.py -g images
+./aiid-describe -g images
 ```
 
 ### Gives
