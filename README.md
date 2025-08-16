@@ -31,26 +31,30 @@ images/test3.jpeg → a boat is in the water near a city
 ```
 
 
-## Setup
+## Setup & Install
+### Create virtual environment
 ```sh
 ./setup-env.sh        # nvidia gpu
 # or
 ./setup-env-rocm.sh   # amd gpu
 ```
-### Use the virtual environment:
-```
-source p3env/bin/activate
+
+### Install
+```sh
+./install.sh
+# Creates symlinks to shell
+# scripts that run the
+# python scripts in a venv.
 ```
 
-
-## describe.py
+## aiid-describe --help
 ```console
-usage: describe.py [-h] [-s] [-g] [-b BATCH] [-lb LOAD_BATCH] [-o OUTPUT] directory
+usage: aiid-describe.py [-h] [-s] [-g] [-b BATCH] [-lb LOAD_BATCH] [-o OUTPUT] input
 
 Describe images in English using BLIP
 
 positional arguments:
-  directory             dir with images
+  input                 image file or directory with images
 
 options:
   -h, --help            show this help message and exit
@@ -62,15 +66,15 @@ options:
   -o, --output OUTPUT   output CSV file to save results
 ```
 
-## nsfw-detector.py
+## aiid-nsfw-detector --help
 (modded describe.py to detect nsfw words auto moderation for a web platform)
 ```console
-usage: nsfw-detector.py [-h] [-s] [-sc] [-sn] [-g] [-b BATCH] [-lb LOAD_BATCH] directory
+usage: aiid-nsfw-detector.py [-h] [-s] [-sc] [-sn] [-g] [-b BATCH] [-lb LOAD_BATCH] input
 
 Detect NSFW images using BLIP (auto moderation)
 
 positional arguments:
-  directory             dir with images
+  input                 image file or directory with images
 
 options:
   -h, --help            show this help message and exit
@@ -83,10 +87,10 @@ options:
                         batch size for loading images into memory
 ```
 
-## group.py
-(needs manual tweaking to actually work)
+## aiid-group --help
+(needs manual tweaking to actually work well)
 ```console
-usage: group.py [-h] [-s] [-g] directory
+usage: aiid-group.py [-h] [-s] [-g] directory
 
 group images by eng names
 
