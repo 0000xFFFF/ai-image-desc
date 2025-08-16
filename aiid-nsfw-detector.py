@@ -11,9 +11,9 @@ import gc
 # Argument parsing
 parser = argparse.ArgumentParser(description='Detect NSFW images using BLIP (auto moderation)')
 parser.add_argument('input', type=str, help="image file or directory with images")
-parser.add_argument('-s', '--show', action='store_true', help="show images (clean+nsfw) with label in title")
-parser.add_argument('-sc', '--show_clean', action='store_true', help="show clean images with label in title")
-parser.add_argument('-sn', '--show_nsfw', action='store_true', help="show nsfw images with label in title")
+parser.add_argument('-s', '--show', action='store_true', help="show images (clean+nsfw) with label in title after processing all")
+parser.add_argument('-sc', '--show_clean', action='store_true', help="show clean images with label in title after processing all")
+parser.add_argument('-sn', '--show_nsfw', action='store_true', help="show nsfw images with label in title after processing all")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-b', '--batch', type=int, default=8, help="batch size for GPU processing")
 parser.add_argument('-lb', '--load_batch', type=int, default=256, help="batch size for loading images into memory")

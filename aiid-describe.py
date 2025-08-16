@@ -12,7 +12,7 @@ import csv
 # Argument parsing
 parser = argparse.ArgumentParser(description='Describe images in English using BLIP')
 parser.add_argument('input', type=str, help="image file or directory with images")
-parser.add_argument('-s', '--show', action='store_true', help="show image with label in title")
+parser.add_argument('-s', '--show', action='store_true', help="show image(s) with label in title after processing all")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-b', '--batch', type=int, default=8, help="batch size for GPU processing")
 parser.add_argument('-lb', '--load_batch', type=int, default=256, help="batch size for loading images into memory")
@@ -140,8 +140,6 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 # Store results
                 for path, caption in zip(paths, captions):
                     results.append((path, caption))
-                    if args.show:
-                        show(path, caption)
                 
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
@@ -181,3 +179,6 @@ if args.output:
 print("\nResults:")
 for path, caption in results:
     print(f"{path} → {caption}")
+    if args.show:
+        show(path, caption)
+
