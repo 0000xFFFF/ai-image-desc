@@ -11,7 +11,7 @@ import csv
 
 # Argument parsing
 parser = argparse.ArgumentParser(description='Describe images in English using BLIP')
-parser.add_argument('directory', type=str, help="dir with images")
+parser.add_argument('input', type=str, help="image file or directory with images")
 parser.add_argument('-s', '--show', action='store_true', help="show image with label in title")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-b', '--batch', type=int, default=8, help="batch size for GPU processing")
@@ -30,7 +30,26 @@ def show(image_path, caption):
     plt.axis("off")
     plt.show()
 
-print(f"Searching in dir: {args.directory}")
+print(f"Searching in: {args.input}")
+
+# Collect image files
+image_files = []
+if os.path.isfile(args.input):
+    # Single file
+    image_files = [args.input]
+elif os.path.isdir(args.input):
+    # Directory (recursive search)
+    for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
+        image_files.extend(glob.glob(os.path.join(args.input, "**", ext), recursive=True))
+else:
+    print("Error: Input path is neither a file nor a directory")
+    exit()
+
+if not image_files:
+    print("No images found!")
+    exit()
+
+print(f"Found {len(image_files)} images")
 
 # Device
 device = "cuda" if args.gpu and torch.cuda.is_available() else "cpu"
@@ -38,15 +57,13 @@ print(f"Using device: {device}")
 
 # Load BLIP
 from transformers import BlipProcessor, BlipForConditionalGeneration
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+processor = BlipProcessor.from_pretrained(
+    "Salesforce/blip-image-captioning-base",
+    use_fast=False
+)
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 model.to(device)
 model.eval()
-
-# Recursive image search
-image_files = []
-for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
-    image_files.extend(glob.glob(os.path.join(args.directory, "**", ext), recursive=True))
 
 if not image_files:
     print("No images found!")
@@ -115,7 +132,7 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
                 
                 with torch.no_grad():
-                    with torch.cuda.amp.autocast(enabled=(device=="cuda")):
+                    with torch.amp.autocast("cuda", enabled=(device=="cuda")):
                         outputs = model.generate(**inputs)
                 
                 captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
