@@ -155,6 +155,7 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 for path, img in batch:
                     captions = generate_captions(img, args.caption_count)
 
+                    captions_str = " ; ".join(captions)
                     nsfw = False
                     for i, caption in enumerate(captions):
                         pattern = re.compile(r"\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\b", re.IGNORECASE)
@@ -165,9 +166,9 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                             break
 
                     if nsfw:
-                        nsfw_results.append((path, caption, f"{i} - {match.group(1)}"))
+                        nsfw_results.append((path, captions_str, f"{i} - {match.group(1)}"))
                     else:
-                        clean_results.append((path, caption))
+                        clean_results.append((path, captions_str))
 
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
@@ -204,7 +205,7 @@ if nsfw_results:
     for path, captions, match in nsfw_results:
         print(f"|-- {path} → {captions} → {match}")
         if args.show or args.show_nsfw:
-            show(path, captions_str)
+            show(path, captions)
 
 if clean_results:
     if args.output_clean:
@@ -215,7 +216,7 @@ if clean_results:
         for path, captions in clean_results:
             print(f"|-- {path} → {captions}")
             if args.show or args.show_clean:
-                show(path, captions_str)
+                show(path, captions)
 
 # Summary
 print(f"\n{"-"*20} SUMMARY {"-"*20}")
