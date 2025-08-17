@@ -14,16 +14,17 @@ import string
 # Argument parsing
 parser = argparse.ArgumentParser(description='Detect NSFW images using BLIP (auto moderation)')
 parser.add_argument('input', type=str, help="image file or directory with images")
+parser.add_argument('-g', '--gpu', action='store_true', help="use GPU")
+parser.add_argument('-c', '--count', metavar="number", type=int, default=1, help="how many captions to generate per image (default: 1)")
+parser.add_argument('-a', '--all', action='store_true', help="output all generated captions (default: output only matched caption or last if no match)")
 parser.add_argument('-s', '--show', action='store_true', help="show images (clean+nsfw) with caption in title after processing all")
 parser.add_argument('-sc', '--show_clean', action='store_true', help="show clean images with caption in title after processing all")
 parser.add_argument('-sn', '--show_nsfw', action='store_true', help="show nsfw images with caption in title after processing all")
 parser.add_argument('-pc', '--print_clean', action='store_true', help="print clean images (default: don't print)")
-parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-b', '--batch', metavar="number", type=int, default=8, help="batch size for GPU processing")
 parser.add_argument('-lb', '--load_batch', metavar="number", type=int, default=256, help="batch size for loading images into memory")
 parser.add_argument('-oc', '--output_clean', metavar="clean.csv", type=str, help="output clean image(s) with caption to CSV file")
 parser.add_argument('-on', '--output_nsfw', metavar="nsfw.csv", type=str, help="output nsfw image(s) with caption CSV file")
-parser.add_argument('-cc', '--caption_count', metavar="X", type=int, default=1, help="generate X captions per image instead of 1")
 args = parser.parse_args()
 
 if args.show or args.show_clean or args.show_nsfw:
@@ -153,9 +154,8 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 paths, images = zip(*batch)
 
                 for path, img in batch:
-                    captions = generate_captions(img, args.caption_count)
+                    captions = generate_captions(img, args.count)
 
-                    captions_str = " ; ".join(captions)
                     nsfw = False
                     for i, caption in enumerate(captions):
                         pattern = re.compile(r"\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\b", re.IGNORECASE)
@@ -164,6 +164,10 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                         if match:
                             nsfw = True
                             break
+
+                    captions_str = caption
+                    if args.all:
+                        captions_str = " ; ".join(captions)
 
                     if nsfw:
                         nsfw_results.append((path, captions_str, f"{i} - {match.group(1)}"))
