@@ -17,6 +17,7 @@ parser.add_argument('input', type=str, help="image file or directory with images
 parser.add_argument('-s', '--show', action='store_true', help="show images (clean+nsfw) with caption in title after processing all")
 parser.add_argument('-sc', '--show_clean', action='store_true', help="show clean images with caption in title after processing all")
 parser.add_argument('-sn', '--show_nsfw', action='store_true', help="show nsfw images with caption in title after processing all")
+parser.add_argument('-pc', '--print_clean', action='store_true', help="print clean images (default: don't print)")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-b', '--batch', metavar="number", type=int, default=8, help="batch size for GPU processing")
 parser.add_argument('-lb', '--load_batch', metavar="number", type=int, default=256, help="batch size for loading images into memory")
@@ -121,10 +122,6 @@ def generate_captions(img, num):
 load_batch_size = args.load_batch
 processing_batch_size = args.batch
 
-def normalize(text: str) -> str:
-    # lowercase and remove punctuation
-    return text.lower().translate(str.maketrans('', '', string.punctuation))
-
 with tqdm(total=len(image_files), desc="Overall progress", position=0) as overall_pbar:
     with tqdm(total=0, desc="Current batch", position=1, leave=False) as batch_pbar:
         for load_start in range(0, len(image_files), load_batch_size):
@@ -158,13 +155,19 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 for path, img in batch:
                     captions = generate_captions(img, args.caption_count)
 
-                    for caption in captions:
-                        normalized = normalize(caption)
-                        match = pattern.search(normalized)
+                    nsfw = False
+                    for i, caption in enumerate(captions):
+                        pattern = re.compile(r"\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\b", re.IGNORECASE)
+                        text = caption.lower()
+                        match = pattern.search(text)
                         if match:
-                            nsfw_results.append((path, captions, match.group(1)))
-                        else:
-                            clean_results.append((path, captions))
+                            nsfw = True
+                            break
+
+                    if nsfw:
+                        nsfw_results.append((path, caption, f"{i} - {match.group(1)}"))
+                    else:
+                        clean_results.append((path, caption))
 
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
@@ -206,17 +209,19 @@ if nsfw_results:
 if clean_results:
     if args.output_clean:
         save_csv(args.output_clean, clean_results)
-    print("\nClean Images:")
-    for path, captions in clean_results:
-        print(f"{path} → {captions}")
-        if args.show or args.show_clean:
-            show(path, captions_str)
+
+    if args.print_clean or args.show or args.show_clean:
+        print("\nClean Images:")
+        for path, captions in clean_results:
+            print(f"{path} → {captions}")
+            if args.show or args.show_clean:
+                show(path, captions_str)
 
 # Summary
-print("\n===== SUMMARY =====")
-print(f"Total images found: {len(image_files)}")
+print(f"\n{"-"*20} SUMMARY {"-"*20}")
+print(f"Total images found....: {len(image_files)}")
 print(f"Total images processed: {total_processed}")
-print(f"Failed to load: {failed_loads}")
-print(f"NSFW detected: {len(nsfw_results)}")
-print(f"Clean: {len(clean_results)}")
+print(f"Failed to load........: {failed_loads}")
+print(f"Clean images..........: {len(clean_results)}")
+print(f"NSFW images...........: {len(nsfw_results)}")
 
