@@ -170,7 +170,7 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                         captions_str = " ; ".join(captions)
 
                     if nsfw:
-                        nsfw_results.append((path, captions_str, f"{i} - {match.group(1)}"))
+                        nsfw_results.append((path, f"{captions_str} ({i} - {match.group(1)})"))
                     else:
                         clean_results.append((path, captions_str))
 
@@ -189,14 +189,11 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 torch.cuda.empty_cache()
 
 
-def save_csv(file, results, nsfw=False):
+def save_csv(file, results):
     try:
         with open(file, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile, delimiter='|')
-            if nsfw:
-                writer.writerow(['Path', 'Caption(s)', 'MatchedWord'])
-            else:
-                writer.writerow(['Path', 'Caption(s)'])
+            writer.writerow(['Path', 'Caption(s)'])
             writer.writerows(results)
         print(f"Results saved to: {file}")
     except Exception as e:
@@ -204,7 +201,7 @@ def save_csv(file, results, nsfw=False):
 
 if nsfw_results:
     if args.output_nsfw:
-        save_csv(args.output_nsfw, nsfw_results, nsfw=True)
+        save_csv(args.output_nsfw, nsfw_results)
     print("+==[ NSFW Images:")
     for path, captions, match in nsfw_results:
         print(f"|-- {path} → {captions} → {match}")
