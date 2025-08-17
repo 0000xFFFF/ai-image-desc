@@ -192,7 +192,7 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
 def save_csv(file, results, nsfw=False):
     try:
         with open(file, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile)
+            writer = csv.writer(csvfile, delimiter='|')
             if nsfw:
                 writer.writerow(['Path', 'Caption(s)', 'MatchedWord'])
             else:
