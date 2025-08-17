@@ -200,9 +200,9 @@ def save_csv(file, results, nsfw=False):
 if nsfw_results:
     if args.output_nsfw:
         save_csv(args.output_nsfw, nsfw_results, nsfw=True)
-    print("\nNSFW Images:")
+    print("+==[ NSFW Images:")
     for path, captions, match in nsfw_results:
-        print(f"{path} → {captions} → {match}")
+        print(f"|-- {path} → {captions} → {match}")
         if args.show or args.show_nsfw:
             show(path, captions_str)
 
@@ -211,9 +211,9 @@ if clean_results:
         save_csv(args.output_clean, clean_results)
 
     if args.print_clean or args.show or args.show_clean:
-        print("\nClean Images:")
+        print("+==[ Clean Images:")
         for path, captions in clean_results:
-            print(f"{path} → {captions}")
+            print(f"|-- {path} → {captions}")
             if args.show or args.show_clean:
                 show(path, captions_str)
 
