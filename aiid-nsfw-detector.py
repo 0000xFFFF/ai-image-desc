@@ -9,6 +9,7 @@ from tqdm import tqdm
 import csv
 import gc
 import re
+import string
 
 # Argument parsing
 parser = argparse.ArgumentParser(description='Detect NSFW images using BLIP (auto moderation)')
@@ -96,6 +97,7 @@ failed_loads = 0
 # Regex pattern for NSFW check
 pattern = re.compile(r"\\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\\b", re.IGNORECASE)
 
+
 # Multi-caption generation function
 def generate_captions(img, num):
     """Generate multiple captions for a single image in one forward pass."""
@@ -112,11 +114,16 @@ def generate_captions(img, num):
         )
     # Deduplicate captions
     captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
-    return list(set(captions))
+    return set(captions)
+
 
 # Processing loop
 load_batch_size = args.load_batch
 processing_batch_size = args.batch
+
+def normalize(text: str) -> str:
+    # lowercase and remove punctuation
+    return text.lower().translate(str.maketrans('', '', string.punctuation))
 
 with tqdm(total=len(image_files), desc="Overall progress", position=0) as overall_pbar:
     with tqdm(total=0, desc="Current batch", position=1, leave=False) as batch_pbar:
@@ -150,12 +157,14 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
 
                 for path, img in batch:
                     captions = generate_captions(img, args.caption_count)
+
                     for caption in captions:
-                        match = pattern.search(caption.lower())
+                        normalized = normalize(caption)
+                        match = pattern.search(normalized)
                         if match:
-                            nsfw_results.append((path, caption, match.group(1)))
+                            nsfw_results.append((path, captions, match.group(1)))
                         else:
-                            clean_results.append((path, caption))
+                            clean_results.append((path, captions))
 
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
@@ -171,22 +180,15 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
             if device == "cuda":
                 torch.cuda.empty_cache()
 
-# Summary
-print("\n===== SUMMARY =====")
-print(f"Total images found: {len(image_files)}")
-print(f"Total images processed: {total_processed}")
-print(f"Failed to load: {failed_loads}")
-print(f"NSFW detected: {len(nsfw_results)}")
-print(f"Clean: {len(clean_results)}")
 
 def save_csv(file, results, nsfw=False):
     try:
         with open(file, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
             if nsfw:
-                writer.writerow(['Path', 'Caption', 'MatchedWord'])
+                writer.writerow(['Path', 'Caption(s)', 'MatchedWord'])
             else:
-                writer.writerow(['Path', 'Caption'])
+                writer.writerow(['Path', 'Caption(s)'])
             writer.writerows(results)
         print(f"Results saved to: {file}")
     except Exception as e:
@@ -196,16 +198,25 @@ if nsfw_results:
     if args.output_nsfw:
         save_csv(args.output_nsfw, nsfw_results, nsfw=True)
     print("\nNSFW Images:")
-    for path, caption, match in nsfw_results:
-        print(f"{path} → {caption} → {match}")
+    for path, captions, match in nsfw_results:
+        print(f"{path} → {captions} → {match}")
         if args.show or args.show_nsfw:
-            show(path, caption)
+            show(path, captions_str)
 
 if clean_results:
     if args.output_clean:
         save_csv(args.output_clean, clean_results)
     print("\nClean Images:")
-    for path, caption in clean_results:
-        print(f"{path} → {caption}")
+    for path, captions in clean_results:
+        print(f"{path} → {captions}")
         if args.show or args.show_clean:
-            show(path, caption)
+            show(path, captions_str)
+
+# Summary
+print("\n===== SUMMARY =====")
+print(f"Total images found: {len(image_files)}")
+print(f"Total images processed: {total_processed}")
+print(f"Failed to load: {failed_loads}")
+print(f"NSFW detected: {len(nsfw_results)}")
+print(f"Clean: {len(clean_results)}")
+
