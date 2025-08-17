@@ -21,6 +21,7 @@ parser.add_argument('-b', '--batch', metavar="number", type=int, default=8, help
 parser.add_argument('-lb', '--load_batch', metavar="number", type=int, default=256, help="batch size for loading images into memory")
 parser.add_argument('-oc', '--output_clean', metavar="clean.csv", type=str, help="output clean image(s) with caption to CSV file")
 parser.add_argument('-on', '--output_nsfw', metavar="nsfw.csv", type=str, help="output nsfw image(s) with caption CSV file")
+parser.add_argument('-cc', '--caption_count', metavar="X", type=int, default=1, help="generate X captions per image instead of 1")
 args = parser.parse_args()
 
 if args.show or args.show_clean or args.show_nsfw:
@@ -33,7 +34,6 @@ def show(image_path, caption):
     plt.imshow(io.imread(image_path))
     plt.axis("off")
     plt.show()
-
 
 # NSFW keywords
 nsfw_keywords = set()
@@ -49,11 +49,9 @@ print(f"Loaded {len(nsfw_keywords)} nsfw keywords")
 # Collect image files
 image_files = []
 if os.path.isfile(args.input):
-    # Single file
     image_files = [args.input]
 elif os.path.isdir(args.input):
     print(f"Searching in dir: {args.input}")
-    # Directory (recursive search)
     for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
         image_files.extend(glob.glob(os.path.join(args.input, "**", ext), recursive=True))
     print(f"Found {len(image_files)} images")
@@ -64,8 +62,6 @@ else:
 if not image_files:
     print("No images found!")
     exit()
-
-
 
 # Device
 device = "cuda" if args.gpu and torch.cuda.is_available() else "cpu"
@@ -88,7 +84,7 @@ def load_image(path):
     try:
         img = Image.open(path).convert("RGB")
         return path, img
-    except Exception as e:
+    except Exception:
         return path, None
 
 # Results storage
@@ -97,91 +93,85 @@ clean_results = []
 total_processed = 0
 failed_loads = 0
 
-# Process images in loading batches to manage memory
+# Regex pattern for NSFW check
+pattern = re.compile(r"\\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\\b", re.IGNORECASE)
+
+# Multi-caption generation function
+def generate_captions(img, num):
+    """Generate multiple captions for a single image in one forward pass."""
+    inputs = processor(images=img, return_tensors="pt").to(device)
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_length=40,
+            do_sample=True,
+            top_k=50,
+            top_p=0.9,
+            temperature=0.7,
+            num_return_sequences=num  # generate N captions at once
+        )
+    # Deduplicate captions
+    captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
+    return list(set(captions))
+
+# Processing loop
 load_batch_size = args.load_batch
 processing_batch_size = args.batch
 
-# Process images in loading batches to manage memory
-load_batch_size = args.load_batch
-processing_batch_size = args.batch
-
-# Create nested progress bars
 with tqdm(total=len(image_files), desc="Overall progress", position=0) as overall_pbar:
     with tqdm(total=0, desc="Current batch", position=1, leave=False) as batch_pbar:
-        
         for load_start in range(0, len(image_files), load_batch_size):
-            # Get current batch of file paths
             load_end = min(load_start + load_batch_size, len(image_files))
             current_batch_paths = image_files[load_start:load_end]
-            
-            # Reset and configure batch progress bar
+
             batch_pbar.reset(total=len(current_batch_paths))
             batch_pbar.set_description(f"Loading batch {load_start//load_batch_size + 1}/{(len(image_files)-1)//load_batch_size + 1}")
-            
-            # Load current batch of images using thread pool
+
             loaded_images = []
-            with ThreadPoolExecutor(max_workers=8) as executor:
+            with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
                 for result in executor.map(load_image, current_batch_paths):
                     loaded_images.append(result)
                     batch_pbar.update(1)
-            
-            # Filter out failed loads
+
             valid_images = [(p, img) for p, img in loaded_images if img is not None]
             failed_loads += len(loaded_images) - len(valid_images)
-            
+
             if not valid_images:
                 overall_pbar.update(len(current_batch_paths))
                 continue
-            
-            # Reset batch progress bar for processing
+
             batch_pbar.reset(total=len(valid_images))
             batch_pbar.set_description(f"Processing batch {load_start//load_batch_size + 1}")
-            
-            # Process the loaded images in smaller processing batches
+
             for proc_start in range(0, len(valid_images), processing_batch_size):
                 proc_end = min(proc_start + processing_batch_size, len(valid_images))
                 batch = valid_images[proc_start:proc_end]
                 paths, images = zip(*batch)
-                
-                # Process batch with BLIP
-                inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
-                
-                with torch.no_grad():
-                    with torch.amp.autocast("cuda", enabled=(device=="cuda")):
-                        outputs = model.generate(**inputs)
-                
-                captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
-                
-                # Analyze results (regex match whole words)
-                pattern = re.compile(r"\b(" + "|".join(map(re.escape, nsfw_keywords)) + r")\b", re.IGNORECASE)
-                for path, caption in zip(paths, captions):
-                    text = caption.lower()
-                    match = pattern.search(text)
 
-                    if match:
-                        # Add (path, caption, matched_word)
-                        nsfw_results.append((path, caption, match.group(1)))
-                    else:
-                        clean_results.append((path, caption))
-                            
+                for path, img in batch:
+                    captions = generate_captions(img, args.caption_count)
+                    for caption in captions:
+                        match = pattern.search(caption.lower())
+                        if match:
+                            nsfw_results.append((path, caption, match.group(1)))
+                        else:
+                            clean_results.append((path, caption))
+
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
                 overall_pbar.update(len(batch))
-                
-                # Clear GPU cache if using CUDA
+
                 if device == "cuda":
                     torch.cuda.empty_cache()
-            
-            # Clear the loaded images from memory
+
             del valid_images
             del loaded_images
-            gc.collect()  # Force garbage collection
-            
-            # Clear GPU cache again
+            gc.collect()
+
             if device == "cuda":
                 torch.cuda.empty_cache()
 
-# Summary output
+# Summary
 print("\n===== SUMMARY =====")
 print(f"Total images found: {len(image_files)}")
 print(f"Total images processed: {total_processed}")
@@ -189,12 +179,14 @@ print(f"Failed to load: {failed_loads}")
 print(f"NSFW detected: {len(nsfw_results)}")
 print(f"Clean: {len(clean_results)}")
 
-
-def save_csv(file, results):
+def save_csv(file, results, nsfw=False):
     try:
         with open(file, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(['Path', 'Caption'])  # Header
+            if nsfw:
+                writer.writerow(['Path', 'Caption', 'MatchedWord'])
+            else:
+                writer.writerow(['Path', 'Caption'])
             writer.writerows(results)
         print(f"Results saved to: {file}")
     except Exception as e:
@@ -202,8 +194,7 @@ def save_csv(file, results):
 
 if nsfw_results:
     if args.output_nsfw:
-        save_csv(args.output_nsfw, nsfw_results)
-
+        save_csv(args.output_nsfw, nsfw_results, nsfw=True)
     print("\nNSFW Images:")
     for path, caption, match in nsfw_results:
         print(f"{path} → {caption} → {match}")
@@ -211,14 +202,10 @@ if nsfw_results:
             show(path, caption)
 
 if clean_results:
-
     if args.output_clean:
         save_csv(args.output_clean, clean_results)
-
     print("\nClean Images:")
     for path, caption in clean_results:
         print(f"{path} → {caption}")
         if args.show or args.show_clean:
             show(path, caption)
-
-
