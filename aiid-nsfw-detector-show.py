@@ -32,7 +32,7 @@ def show_images(results):
 
 def main():
     parser = argparse.ArgumentParser(description="Display images from CSV with captions.")
-    parser.add_argument('file.csv', help="Path to the CSV file")
+    parser.add_argument('csv_file', metavar="file.csv", help="Path to the CSV file")
     args = parser.parse_args()
 
     results = read_csv(args.csv_file)
