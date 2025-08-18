@@ -203,7 +203,7 @@ if nsfw_results:
     if args.output_nsfw:
         save_csv(args.output_nsfw, nsfw_results)
     print("+==[ NSFW Images:")
-    for path, captionsin nsfw_results:
+    for path, captions in nsfw_results:
         print(f"|-- {path} → {captions}")
         if args.show or args.show_nsfw:
             show(path, captions)
