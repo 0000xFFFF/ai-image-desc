@@ -1,5 +1,5 @@
 # ai-image-desc
-trying to describe images using ai
+describe image in English with AI 
 
 ## Preview
 
