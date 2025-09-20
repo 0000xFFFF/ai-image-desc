@@ -14,7 +14,8 @@ parser = argparse.ArgumentParser(description='Describe images in English using B
 parser.add_argument('input', type=str, help="image file or directory with images")
 parser.add_argument('-s', '--show', action='store_true', help="show image(s) with caption in title after processing all")
 parser.add_argument('-c', '--count', metavar="number", type=int, default=1, help="how many captions to generate per image (default: 1)")
-parser.add_argument('-a', '--all', action='store_true', help="output all generated captions (default: output only matched caption or last if no match)")
+parser.add_argument('-w', '--words', action='store_true', help="turn captions into keywords that will be sorted")
+parser.add_argument('-wc', '--words_clean', action='store_true', help="same as -w + remove function words like ('the', 'a', 'an', ...)")
 parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-b', '--batch', metavar="number", type=int, default=8, help="batch size for GPU processing")
 parser.add_argument('-lb', '--load_batch', metavar="number", type=int, default=256, help="batch size for loading images into memory")
@@ -24,6 +25,9 @@ args = parser.parse_args()
 if args.show:
     import matplotlib.pyplot as plt
     from skimage import io
+
+if args.words_clean:
+    args.words = True
 
 def show(image_path, caption):
     plt.figure()
@@ -82,6 +86,23 @@ results = []
 total_processed = 0
 failed_loads = 0
 
+words_blacklist = set({"the", "a", "an", "at", "in", "of", "as", "to"})
+
+def captions_to_words(captions):
+    words = set()
+    for i in captions:
+        for w in i.split(" "):
+            if args.words_clean:
+                if w not in words and w not in words_blacklist:
+                    words.add(w)
+            else:
+                if w not in words:
+                    words.add(w)
+    words_list = list(words)
+    words_list.sort()
+    return words_list
+
+
 # Multi-caption generation function
 def generate_captions(img, num):
     """Generate multiple captions for a single image in one forward pass."""
@@ -98,6 +119,9 @@ def generate_captions(img, num):
         )
     # Deduplicate captions
     captions = [processor.decode(o, skip_special_tokens=True) for o in outputs]
+    if args.words:
+        captions = captions_to_words(captions)
+
     return set(captions)
 
 
@@ -148,19 +172,21 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                     
                     # Store results
                     for path, caption in zip(paths, captions):
-                        results.append((path, caption))
+
+                        caption_str = caption
+                        if args.words:
+                            caption_str = " ".join(captions_to_words(list(caption)))
+
+                        results.append((path, caption_str))
 
                 else:
                     for path, img in batch:
                         captions = generate_captions(img, args.count)
 
-                        captions_str = ""
-                        for i in captions:
-                            captions_str = i
-                            break
+                        captions_str = "  ".join(captions)
 
-                        if args.all:
-                            captions_str = " ; ".join(captions)
+                        if args.words:
+                            captions_str = " ".join(captions_to_words(captions))
 
                         results.append((path, captions_str))
 
