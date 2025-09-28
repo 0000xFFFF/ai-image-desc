@@ -1,4 +1,5 @@
-#!/bin/bash -x
+#!/usr/bin/env bash
+set -x
 sudo ln -sfr aiid-describe /usr/local/bin/.
 sudo ln -sfr aiid-nsfw-detector /usr/local/bin/.
 sudo ln -sfr aiid-nsfw-detector-show /usr/local/bin/.
