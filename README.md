@@ -34,9 +34,9 @@ images/test3.jpeg → a boat is in the water near a city
 ## Setup & Install
 ### Create virtual environment
 ```sh
-./setup-env.sh        # nvidia gpu
+./setup-venv.sh        # nvidia gpu
 # or
-./setup-env-rocm.sh   # amd gpu
+./setup-venv-rocm.sh   # amd gpu
 ```
 
 ### Install
