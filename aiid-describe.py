@@ -20,15 +20,25 @@ parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-b', '--batch', metavar="number", type=int, default=8, help="batch size for GPU processing")
 parser.add_argument('-lb', '--load_batch', metavar="number", type=int, default=256, help="batch size for loading images into memory")
 parser.add_argument('-o', '--output', metavar="file.csv", type=str, help="output results to CSV file")
-parser.add_argument('-d', '--defaults', action='store_true', help="-c 5 -wc -g -b 64 -lb 256 -o output.csv")
+parser.add_argument('-d', '--defaults', action='store_true', help="-c 5 -wc -g -b 128 -lb 256 -o output.csv")
+parser.add_argument('-d2', '--defaults', action='store_true', help="-c 5 -wc -g -b 256 -lb 512 -o output.csv")
 args = parser.parse_args()
 
 if args.defaults:
     args.count = 5
     args.words_clean = True
     args.gpu = True
-    args.batch = 64
+    args.batch = 128
     args.load_batch = 256
+    if not args.output:
+        args.output = "output.csv"
+        
+if args.defaults2:
+    args.count = 5
+    args.words_clean = True
+    args.gpu = True
+    args.batch = 256
+    args.load_batch = 512
     if not args.output:
         args.output = "output.csv"
 
