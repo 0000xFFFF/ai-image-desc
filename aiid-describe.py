@@ -20,7 +20,17 @@ parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-b', '--batch', metavar="number", type=int, default=8, help="batch size for GPU processing")
 parser.add_argument('-lb', '--load_batch', metavar="number", type=int, default=256, help="batch size for loading images into memory")
 parser.add_argument('-o', '--output', metavar="file.csv", type=str, help="output results to CSV file")
+parser.add_argument('-d', '--defaults', action='store_true', help="-c 5 -wc -g -b 64 -lb 256 -o output.csv")
 args = parser.parse_args()
+
+if args.defaults:
+    args.count = 5
+    args.words_clean = True
+    args.gpu = True
+    args.batch = 64
+    args.load_batch = 256
+    if not args.output:
+        args.output = "output.csv"
 
 if args.show:
     import matplotlib.pyplot as plt
@@ -28,6 +38,9 @@ if args.show:
 
 if args.words_clean:
     args.words = True
+
+print(args)
+
 
 def show(image_path, caption):
     plt.figure()
@@ -88,13 +101,20 @@ failed_loads = 0
 
 words_blacklist = set({"the", "a", "an", "at", "in", "of", "as", "to"})
 
+specials = set({".", ",", "!", "?", ";", ":", "'", "\"",
+                "(", ")", "[", "]", "{", "}", "-", "_",
+                "/", "\\", "“", "”", "‘", "’", "—", "–", "…", "·", "•", "<", ">",
+                "@", "#", "$", "%", "^", "&", "*", "+", "=", "`", "~", "|"})
+
 def captions_to_words(captions):
     words = set()
     for i in captions:
         for w in i.split(" "):
             if args.words_clean:
                 if w not in words and w not in words_blacklist:
-                    words.add(w)
+                    for s in specials:
+                        w = w.replace(s, "")
+                    words.add(w.strip())
             else:
                 if w not in words:
                     words.add(w)
@@ -123,6 +143,22 @@ def generate_captions(img, num):
         captions = captions_to_words(captions)
 
     return set(captions)
+
+
+# Open CSV file if specified
+csv_file = None
+csv_writer = None
+if args.output:
+    try:
+        csv_file = open(args.output, 'w', newline='', encoding='utf-8')
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow(['Path', 'Caption'])  # Header
+    except Exception as e:
+        print(f"Failed to open CSV file for writing: {e}")
+        # Disable output if file can't be opened
+        args.output = None
+        if csv_file:
+            csv_file.close()
 
 
 # Processing loop
@@ -159,6 +195,7 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 batch = valid_images[proc_start:proc_end]
                 paths, images = zip(*batch)
 
+                batch_results = []
 
                 if args.count == 1:
                     # Process batch with BLIP
@@ -177,7 +214,7 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                         if args.words:
                             caption_str = " ".join(captions_to_words(list(caption)))
 
-                        results.append((path, caption_str))
+                        batch_results.append((path, caption_str))
 
                 else:
                     for path, img in batch:
@@ -188,7 +225,13 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                         if args.words:
                             captions_str = " ".join(captions_to_words(captions))
 
-                        results.append((path, captions_str))
+                        batch_results.append((path, captions_str))
+                
+                results.extend(batch_results)
+
+                if csv_writer:
+                    csv_writer.writerows(batch_results)
+                    csv_file.flush()
 
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
@@ -204,6 +247,9 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
             if device == "cuda":
                 torch.cuda.empty_cache()
 
+if csv_file:
+    csv_file.close()
+
 # Summary output
 print("\n===== SUMMARY =====")
 print(f"Total images found: {len(image_files)}")
@@ -212,14 +258,7 @@ print(f"Failed to load: {failed_loads}")
 
 # Save to CSV if output file specified
 if args.output:
-    try:
-        with open(args.output, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['Path', 'Caption'])  # Header
-            writer.writerows(results)
-        print(f"Results saved to: {args.output}")
-    except Exception as e:
-        print(f"Failed to save CSV: {e}")
+    print(f"Results saved to: {args.output}")
 
 # Print all results
 print("\nResults:")

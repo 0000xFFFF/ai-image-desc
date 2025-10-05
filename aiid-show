@@ -2,5 +2,5 @@
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 VENV_PATH="$SCRIPT_DIR/.venv"
 source "$VENV_PATH/bin/activate"
-python "$SCRIPT_DIR/aiid-nsfw-detector-show.py" "$@"
+python "$SCRIPT_DIR/aiid-show.py" "$@"
 deactivate
