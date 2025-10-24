@@ -57,7 +57,7 @@ images/test3.jpeg → a boat is in the water near a city
 
 ```console
 usage: aiid-describe.py [-h] [-s] [-c number] [-w] [-wc] [-g] [-b number]
-                        [-lb number] [-o file.csv] [-d]
+                        [-lb number] [-o file.csv] [-od file.csv] [-d] [-d2]
                         input
 
 Describe images in English using BLIP
@@ -79,8 +79,11 @@ options:
                         batch size for loading images into memory
   -o, --output file.csv
                         output results to CSV file
-  -d, --defaults        -c 5 -wc -g -b 64 -lb 256 -o output.csv
-
+  -od, --output_delimiter file.csv
+                        delimiter to use when outputing csv file (default:
+                        '|')
+  -d, --defaults        -c 5 -wc -g -b 128 -lb 256 -o output.csv
+  -d2, --defaults2      -c 5 -wc -g -b 256 -lb 512 -o output.csv
 ```
 
 ### Recommended way to run
