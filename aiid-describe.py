@@ -20,8 +20,9 @@ parser.add_argument('-g', '--gpu', action='store_true', help="use gpu")
 parser.add_argument('-b', '--batch', metavar="number", type=int, default=8, help="batch size for GPU processing")
 parser.add_argument('-lb', '--load_batch', metavar="number", type=int, default=256, help="batch size for loading images into memory")
 parser.add_argument('-o', '--output', metavar="file.csv", type=str, help="output results to CSV file")
+parser.add_argument('-od', '--output_delimiter', metavar="file.csv", type=str, default="|", help="delimiter to use when outputing csv file (default: '|')")
 parser.add_argument('-d', '--defaults', action='store_true', help="-c 5 -wc -g -b 128 -lb 256 -o output.csv")
-parser.add_argument('-d2', '--defaults', action='store_true', help="-c 5 -wc -g -b 256 -lb 512 -o output.csv")
+parser.add_argument('-d2', '--defaults2', action='store_true', help="-c 5 -wc -g -b 256 -lb 512 -o output.csv")
 args = parser.parse_args()
 
 if args.defaults:
@@ -161,7 +162,7 @@ csv_writer = None
 if args.output:
     try:
         csv_file = open(args.output, 'w', newline='', encoding='utf-8')
-        csv_writer = csv.writer(csv_file)
+        csv_writer = csv.writer(csv_file, delimiter=args.delimiter)
         csv_writer.writerow(['Path', 'Caption'])  # Header
     except Exception as e:
         print(f"Failed to open CSV file for writing: {e}")
