@@ -10,7 +10,7 @@ def read_csv(file):
     results = []
     try:
         with open(file, 'r', encoding='utf-8') as csvfile:
-            reader = csv.reader(csvfile, delimiter=',')
+            reader = csv.reader(csvfile, delimiter='|')
             headers = next(reader)  # Skip header
             for row in reader:
                 results.append(row)
