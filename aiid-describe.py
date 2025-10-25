@@ -162,7 +162,7 @@ csv_writer = None
 if args.output:
     try:
         csv_file = open(args.output, 'w', newline='', encoding='utf-8')
-        csv_writer = csv.writer(csv_file, delimiter=args.delimiter)
+        csv_writer = csv.writer(csv_file, delimiter=args.output_delimiter)
         csv_writer.writerow(['Path', 'Caption'])  # Header
     except Exception as e:
         print(f"Failed to open CSV file for writing: {e}")
@@ -243,6 +243,7 @@ with tqdm(total=len(image_files), desc="Overall progress", position=0) as overal
                 if csv_writer:
                     csv_writer.writerows(batch_results)
                     csv_file.flush()
+                    os.fsync(csv_file.fileno())
 
                 total_processed += len(batch)
                 batch_pbar.update(len(batch))
