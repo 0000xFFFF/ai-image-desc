@@ -68,7 +68,7 @@ if os.path.isfile(args.input):
 elif os.path.isdir(args.input):
     print(f"Searching in dir: {args.input}")
     # Directory (recursive search)
-    for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
+    for ext in ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.tif", "*.webp", "*.gif"):
         image_files.extend(glob.glob(os.path.join(args.input, "**", ext), recursive=True))
     print(f"Found {len(image_files)} images")
 else:
